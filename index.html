@@ -1,30 +1,63 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Peta Gereja Malalayang</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-<style>#map{height:100vh;}</style>
+    <title>Peta Gereja Malalayang</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { height: 100vh; width: 100%; }
+        .title-overlay {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            margin: 0;
+        }
+    </style>
 </head>
 <body>
-<h2 style="text-align:center;">Peta Persebaran Gereja Malalayang</h2>
+
+<h2 class="title-overlay">Peta Persebaran Gereja Malalayang</h2>
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-var map = L.map('map').setView([1.456,124.800],14);
+    // Inisialisasi peta fokus ke Manado/Malalayang
+    var map = L.map('map').setView([1.455, 124.815], 14);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
- attribution:'© OpenStreetMap'
-}).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-fetch('data.json')
-.then(res=>res.json())
-.then(data=>{
- data.forEach(g=>{
-   L.marker([g.lat,g.lng]).addTo(map)
-   .bindPopup("<b>"+g.nama+"</b><br>"+g.alamat);
- });
-});
+    // Pastikan nama file ini sama dengan yang Anda upload ke GitHub
+    fetch('data_gereja.json')
+    .then(res => {
+        if (!res.ok) throw new Error('File JSON tidak ditemukan (Error 404)');
+        return res.json();
+    })
+    .then(data => {
+        data.forEach(g => {
+            // Cek apakah koordinat tersedia
+            if (g.Latitude && g.Longitude) {
+                L.marker([g.Latitude, g.Longitude]).addTo(map)
+                .bindPopup(
+                    "<b>" + g['Nama Gereja'] + "</b><br>" + 
+                    (g.Alamat ? g.Alamat : "Alamat tidak tersedia")
+                );
+            }
+        });
+    })
+    .catch(err => {
+        console.error("Gagal memuat data:", err);
+        alert("Gagal memuat titik lokasi. Pastikan file 'data_gereja.json' sudah diunggah.");
+    });
 </script>
 </body>
 </html>
