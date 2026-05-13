@@ -1,63 +1,482 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-    <title>Peta Gereja Malalayang</title>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-    <style>
-        body { margin: 0; padding: 0; }
-        #map { height: 100vh; width: 100%; }
-        .title-overlay {
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 10px 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            margin: 0;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Peta Gereja — Kecamatan Malalayang, Manado</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ─── RESET & VARS ─────────────────────────────────────────── */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --gold:#C9A84C;
+  --gold-lt:#E8C97A;
+  --cream:#FDF6E8;
+  --dark:#1A1209;
+  --brown:#3D2B0E;
+  --brown-m:#6B4A1E;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--dark);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ─── HEADER ───────────────────────────────────────────────── */
+header{
+  background:var(--dark);padding:0 22px;height:60px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid rgba(201,168,76,.25);flex-shrink:0;z-index:1001;
+}
+.h-left{display:flex;align-items:center;gap:12px}
+.cross{width:28px;height:28px;position:relative;flex-shrink:0}
+.cross::before,.cross::after{content:'';position:absolute;background:var(--gold);border-radius:2px}
+.cross::before{width:5px;height:100%;left:50%;transform:translateX(-50%)}
+.cross::after{width:100%;height:5px;top:26%}
+header h1{font-family:'Playfair Display',serif;font-size:1rem;color:var(--cream);line-height:1.2}
+header h1 small{display:block;font-size:.65rem;font-family:'DM Sans',sans-serif;font-weight:300;color:var(--gold-lt);letter-spacing:.12em;text-transform:uppercase}
+.h-stats{display:flex;gap:18px}
+.hs{text-align:center}
+.hs-n{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--gold);line-height:1}
+.hs-l{font-size:.6rem;color:rgba(253,246,232,.5);letter-spacing:.1em;text-transform:uppercase}
+
+/* ─── LOADING OVERLAY ──────────────────────────────────────── */
+#loading{
+  position:fixed;inset:0;background:var(--dark);z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+}
+.spin{
+  width:40px;height:40px;border:3px solid rgba(201,168,76,.2);
+  border-top-color:var(--gold);border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading p{color:var(--gold-lt);font-size:.85rem;letter-spacing:.08em}
+
+/* ─── MAIN LAYOUT ──────────────────────────────────────────── */
+.main{display:flex;flex:1;overflow:hidden}
+
+/* ─── SIDEBAR ──────────────────────────────────────────────── */
+.sidebar{
+  width:305px;background:var(--cream);overflow-y:auto;
+  flex-shrink:0;border-right:1px solid rgba(201,168,76,.3);
+  display:flex;flex-direction:column;
+}
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px}
+
+.sb-top{
+  background:var(--brown);padding:13px 16px;
+  position:sticky;top:0;z-index:10;flex-shrink:0;
+}
+.sb-top h2{font-family:'Playfair Display',serif;font-size:.88rem;color:var(--cream);margin-bottom:8px}
+.sb-count{font-size:.7rem;color:var(--gold-lt);margin-bottom:8px}
+.s-wrap{position:relative}
+.s-wrap input{
+  width:100%;padding:7px 10px 7px 30px;
+  border:1px solid rgba(201,168,76,.4);border-radius:6px;
+  background:rgba(253,246,232,.1);color:var(--cream);
+  font-family:'DM Sans',sans-serif;font-size:.78rem;outline:none;transition:border .2s;
+}
+.s-wrap input::placeholder{color:rgba(253,246,232,.4)}
+.s-wrap input:focus{border-color:var(--gold)}
+.s-wrap::before{content:'🔍';position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:.7rem;pointer-events:none}
+
+/* Tabs filter kelurahan */
+.tabs{padding:9px 16px 5px;display:flex;flex-wrap:wrap;gap:5px;background:var(--cream);flex-shrink:0}
+.tab{
+  padding:3px 9px;border-radius:20px;border:1px solid rgba(61,43,14,.2);
+  background:transparent;color:var(--brown);font-family:'DM Sans',sans-serif;
+  font-size:.68rem;cursor:pointer;transition:all .18s;font-weight:500;
+}
+.tab:hover{background:rgba(201,168,76,.2);border-color:var(--gold)}
+.tab.on{background:var(--brown);color:var(--cream);border-color:var(--brown)}
+
+/* Church items */
+.church-list{flex:1;padding-bottom:16px}
+.kel-hd{
+  padding:7px 16px 3px;font-size:.63rem;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--gold);
+  background:rgba(201,168,76,.07);border-top:1px solid rgba(201,168,76,.14);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.kel-ct{background:var(--gold);color:var(--dark);font-size:.6rem;padding:1px 6px;border-radius:8px;font-weight:700}
+.ci{
+  padding:9px 16px;cursor:pointer;
+  border-bottom:1px solid rgba(61,43,14,.08);
+  transition:background .15s;display:flex;gap:9px;align-items:flex-start;
+}
+.ci:hover{background:rgba(201,168,76,.12)}
+.ci.on{background:rgba(201,168,76,.22);border-left:3px solid var(--gold)}
+.c-dot{width:9px;height:9px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.c-info h3{font-size:.78rem;font-weight:500;color:var(--brown);line-height:1.3;margin-bottom:1px}
+.c-info p{font-size:.68rem;color:var(--brown-m);line-height:1.3}
+.c-badge{
+  display:inline-block;background:var(--brown);color:var(--cream);
+  font-size:.58rem;padding:1px 6px;border-radius:3px;margin-top:3px;
+}
+.c-no{text-align:center;padding:20px 16px;font-size:.8rem;color:var(--brown-m);font-style:italic}
+
+/* ─── MAP ───────────────────────────────────────────────────── */
+#map{flex:1;z-index:1}
+
+/* ─── LEAFLET POPUP ─────────────────────────────────────────── */
+.leaflet-popup-content-wrapper{
+  background:var(--dark)!important;border:1px solid var(--gold)!important;
+  border-radius:8px!important;box-shadow:0 8px 28px rgba(0,0,0,.6)!important;padding:0!important;
+}
+.leaflet-popup-content{margin:0!important;width:235px!important}
+.leaflet-popup-tip{background:var(--dark)!important}
+.leaflet-popup-close-button{color:var(--gold-lt)!important;font-size:18px!important;top:6px!important;right:8px!important}
+.pu{padding:13px 15px}
+.pu-badge{
+  display:inline-block;background:var(--gold);color:var(--dark);
+  font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  padding:2px 7px;border-radius:3px;margin-bottom:7px;
+}
+.pu-name{font-family:'Playfair Display',serif;font-size:.92rem;color:var(--cream);line-height:1.3;margin-bottom:5px}
+.pu-loc{font-size:.7rem;color:rgba(253,246,232,.55);line-height:1.5;margin-bottom:6px}
+.pu-sep{border:none;border-top:1px solid rgba(201,168,76,.2);margin-bottom:6px}
+.pu-row{font-size:.68rem;color:rgba(253,246,232,.5);line-height:1.6}
+
+/* ─── LEGEND ────────────────────────────────────────────────── */
+.legend{
+  position:absolute;bottom:22px;right:14px;z-index:500;
+  background:rgba(253,246,232,.97);border:1px solid rgba(201,168,76,.35);
+  border-radius:8px;padding:11px 13px;box-shadow:0 4px 18px rgba(0,0,0,.18);min-width:148px;
+}
+.legend h4{font-family:'Playfair Display',serif;font-size:.73rem;color:var(--brown);margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid rgba(201,168,76,.3)}
+.lg-row{display:flex;align-items:center;gap:7px;margin-bottom:4px;font-size:.68rem;color:var(--brown-m)}
+.lg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:1.5px solid rgba(0,0,0,.1)}
+
+/* ─── STAT CARDS (atas peta) ────────────────────────────────── */
+.stat-bar{
+  position:absolute;top:12px;left:12px;z-index:500;
+  display:flex;gap:7px;flex-wrap:wrap;
+}
+.sc{
+  background:rgba(253,246,232,.95);border:1px solid rgba(201,168,76,.35);
+  border-radius:7px;padding:6px 12px;box-shadow:0 2px 10px rgba(0,0,0,.13);text-align:center;
+}
+.sc-n{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--brown);line-height:1}
+.sc-l{font-size:.58rem;color:var(--brown-m);letter-spacing:.07em;text-transform:uppercase}
+
+/* ─── ERROR BANNER ──────────────────────────────────────────── */
+.err{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  background:#c62828;color:#fff;padding:10px 20px;border-radius:8px;
+  font-size:.82rem;z-index:9000;display:none;box-shadow:0 4px 16px rgba(0,0,0,.3);
+}
+
+/* ─── RESPONSIVE ────────────────────────────────────────────── */
+@media(max-width:640px){
+  .sidebar{width:100%;height:38vh}
+  .main{flex-direction:column}
+  #map{min-height:55vh}
+  .h-stats,.stat-bar{display:none}
+  .legend{bottom:10px;right:8px}
+}
+</style>
 </head>
 <body>
 
-<h2 class="title-overlay">Peta Persebaran Gereja Malalayang</h2>
-<div id="map"></div>
+<!-- LOADING -->
+<div id="loading">
+  <div class="spin"></div>
+  <p>Memuat data gereja…</p>
+</div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<!-- HEADER -->
+<header>
+  <div class="h-left">
+    <div class="cross"></div>
+    <h1>
+      Peta Persebaran Gereja
+      <small>Kecamatan Malalayang · Kota Manado</small>
+    </h1>
+  </div>
+  <div class="h-stats">
+    <div class="hs"><div class="hs-n" id="hTotalGereja">—</div><div class="hs-l">Gereja</div></div>
+    <div class="hs"><div class="hs-n" id="hTotalKel">—</div><div class="hs-l">Kelurahan</div></div>
+    <div class="hs"><div class="hs-n" id="hTotalDen">—</div><div class="hs-l">Denominasi</div></div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-top">
+      <h2>Daftar Gereja</h2>
+      <div class="sb-count" id="sbCount">Memuat…</div>
+      <div class="s-wrap">
+        <input id="q" type="text" placeholder="Cari nama gereja atau denominasi…" oninput="applyFilter()">
+      </div>
+    </div>
+    <div class="tabs" id="tabsWrap">
+      <button class="tab on" data-kel="all" onclick="setKel('all',this)">Semua</button>
+    </div>
+    <div class="church-list" id="churchList"><div class="c-no">Memuat data…</div></div>
+  </div>
+
+  <!-- MAP -->
+  <div id="map">
+    <!-- Stat bar -->
+    <div class="stat-bar" id="statBar"></div>
+    <!-- Legend -->
+    <div class="legend" id="legend">
+      <h4>Denominasi</h4>
+    </div>
+  </div>
+
+</div>
+
+<!-- Error banner -->
+<div class="err" id="errBanner"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // Inisialisasi peta fokus ke Manado/Malalayang
-    var map = L.map('map').setView([1.455, 124.815], 14);
+// ════════════════════════════════════════════════════════════
+//  CONFIG
+// ════════════════════════════════════════════════════════════
+// Sesuaikan path ke api.php (relatif atau absolut)
+const API = 'api.php';
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+const DENOM_COLOR = {
+  GMIM:'#2E7D32', GPdI:'#1565C0', GBI:'#6A1B9A',
+  Katolik:'#C62828', GMAHK:'#E65100', KGPM:'#00695C',
+  GIDI:'#4527A0', Lainnya:'#795548',
+};
+function dcolor(d){ return DENOM_COLOR[d] || DENOM_COLOR.Lainnya; }
 
-    // Pastikan nama file ini sama dengan yang Anda upload ke GitHub
-    fetch('data_gereja.json')
-    .then(res => {
-        if (!res.ok) throw new Error('File JSON tidak ditemukan (Error 404)');
-        return res.json();
-    })
-    .then(data => {
-        data.forEach(g => {
-            // Cek apakah koordinat tersedia
-            if (g.Latitude && g.Longitude) {
-                L.marker([g.Latitude, g.Longitude]).addTo(map)
-                .bindPopup(
-                    "<b>" + g['Nama Gereja'] + "</b><br>" + 
-                    (g.Alamat ? g.Alamat : "Alamat tidak tersedia")
-                );
-            }
-        });
-    })
-    .catch(err => {
-        console.error("Gagal memuat data:", err);
-        alert("Gagal memuat titik lokasi. Pastikan file 'data_gereja.json' sudah diunggah.");
+// ════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════
+let allChurches = [];
+let markers     = [];       // parallel array with allChurches
+let activeKel   = 'all';
+let activeEl    = null;
+
+// ════════════════════════════════════════════════════════════
+//  MAP INIT
+// ════════════════════════════════════════════════════════════
+const map = L.map('map',{ center:[1.450,124.815], zoom:13, zoomControl:false });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+  attribution:'© OpenStreetMap contributors © CARTO',
+  subdomains:'abcd', maxZoom:19
+}).addTo(map);
+L.control.zoom({position:'topright'}).addTo(map);
+
+// ════════════════════════════════════════════════════════════
+//  FETCH HELPERS
+// ════════════════════════════════════════════════════════════
+async function get(params = {}) {
+  const url = new URL(API, location.href);
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  if (json.status !== 'ok') throw new Error(json.message || 'API error');
+  return json;
+}
+
+function showErr(msg) {
+  const b = document.getElementById('errBanner');
+  b.textContent = msg; b.style.display = 'block';
+  setTimeout(()=>{ b.style.display='none'; }, 5000);
+}
+
+// ════════════════════════════════════════════════════════════
+//  INIT — ambil stats + semua gereja sekaligus
+// ════════════════════════════════════════════════════════════
+async function init() {
+  try {
+    const [statsRes, gerejaRes, kelList] = await Promise.all([
+      get({ action:'stats' }),
+      get({}),
+      get({ action:'kelurahan_list' }),
+    ]);
+
+    // ── Update header stats
+    document.getElementById('hTotalGereja').textContent = statsRes.total;
+    document.getElementById('hTotalKel').textContent    = statsRes.per_kelurahan.length;
+    document.getElementById('hTotalDen').textContent    = statsRes.per_denominasi.length;
+
+    // ── Stat bar (per denominasi)
+    const sb = document.getElementById('statBar');
+    statsRes.per_denominasi.forEach(d => {
+      sb.insertAdjacentHTML('beforeend',
+        `<div class="sc"><div class="sc-n">${d.total}</div><div class="sc-l">${d.denominasi}</div></div>`);
     });
+
+    // ── Legend
+    const lg = document.getElementById('legend');
+    Object.entries(DENOM_COLOR).forEach(([name,clr]) => {
+      lg.insertAdjacentHTML('beforeend',
+        `<div class="lg-row"><div class="lg-dot" style="background:${clr}"></div>${name}</div>`);
+    });
+
+    // ── Tabs kelurahan
+    const tabs = document.getElementById('tabsWrap');
+    kelList.data.forEach(kel => {
+      const btn = document.createElement('button');
+      btn.className='tab'; btn.dataset.kel=kel; btn.textContent=kel;
+      btn.onclick=()=>setKel(kel,btn);
+      tabs.appendChild(btn);
+    });
+
+    // ── Store & render churches
+    allChurches = gerejaRes.data;
+    buildMarkers();
+    buildSidebar();
+
+    // ── Hide loading
+    document.getElementById('loading').style.display = 'none';
+
+  } catch(e) {
+    document.getElementById('loading').innerHTML =
+      `<p style="color:#e57373;font-size:.9rem;">❌ Gagal memuat data<br><small>${e.message}</small></p>`;
+    showErr('Gagal terhubung ke server: ' + e.message);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  MARKERS
+// ════════════════════════════════════════════════════════════
+function makeIcon(denom) {
+  const c = dcolor(denom);
+  return L.divIcon({
+    html: `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="36" viewBox="0 0 26 36">
+      <path d="M13 0C5.82 0 0 5.82 0 13c0 9.2 13 23 13 23S26 22.2 26 13C26 5.82 20.18 0 13 0z"
+            fill="${c}" opacity=".88"/>
+      <circle cx="13" cy="13" r="6.5" fill="white" opacity=".92"/>
+      <line x1="13" y1="7.5" x2="13" y2="18.5" stroke="${c}" stroke-width="2.4"/>
+      <line x1="8.5" y1="11.5" x2="17.5" y2="11.5" stroke="${c}" stroke-width="2.4"/>
+    </svg>`,
+    iconSize:[26,36], iconAnchor:[13,36], popupAnchor:[0,-38], className:''
+  });
+}
+
+function buildMarkers() {
+  // Clear old markers
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+
+  allChurches.forEach((ch, i) => {
+    const m = L.marker([ch.latitude, ch.longitude], { icon: makeIcon(ch.denominasi) }).addTo(map);
+
+    const alamat  = ch.alamat  ? `<div>📍 ${ch.alamat}</div>`  : '';
+    const telepon = ch.telepon ? `<div>📞 ${ch.telepon}</div>` : '';
+
+    m.bindPopup(`
+      <div class="pu">
+        <div class="pu-badge">${ch.denominasi}</div>
+        <div class="pu-name">${ch.nama_gereja}</div>
+        <div class="pu-loc">
+          📌 ${ch.kelurahan}<br>
+          Kec. ${ch.kecamatan}, ${ch.kota}
+        </div>
+        <hr class="pu-sep">
+        <div class="pu-row">
+          <div>Kode: ${ch.kode}</div>
+          ${alamat}${telepon}
+        </div>
+      </div>`);
+
+    m.on('click', () => highlightCI(i));
+    markers.push(m);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  SIDEBAR
+// ════════════════════════════════════════════════════════════
+function buildSidebar() {
+  const q   = document.getElementById('q').value.trim().toLowerCase();
+  const list= document.getElementById('churchList');
+  list.innerHTML = '';
+
+  const groups = {};
+  let count = 0;
+
+  allChurches.forEach((ch, i) => {
+    const matchKel  = activeKel === 'all' || ch.kelurahan === activeKel;
+    const matchText = !q || ch.nama_gereja.toLowerCase().includes(q) || ch.denominasi.toLowerCase().includes(q);
+
+    // show/hide marker
+    if (matchKel && matchText) { if (!map.hasLayer(markers[i])) markers[i].addTo(map); }
+    else                        { if (map.hasLayer(markers[i])) map.removeLayer(markers[i]); }
+
+    if (!matchKel || !matchText) return;
+    count++;
+
+    (groups[ch.kelurahan] = groups[ch.kelurahan] || []).push({ ch, i });
+  });
+
+  document.getElementById('sbCount').textContent = `Menampilkan ${count} gereja`;
+
+  if (count === 0) {
+    list.innerHTML = '<div class="c-no">Tidak ada gereja yang cocok</div>';
+    return;
+  }
+
+  Object.keys(groups).sort().forEach(kel => {
+    const grp = groups[kel];
+    list.insertAdjacentHTML('beforeend',
+      `<div class="kel-hd">${kel}<span class="kel-ct">${grp.length}</span></div>`);
+
+    grp.forEach(({ ch, i }) => {
+      const el = document.createElement('div');
+      el.className   = 'ci';
+      el.id          = `ci${i}`;
+      el.dataset.idx = i;
+      el.innerHTML = `
+        <div class="c-dot" style="background:${dcolor(ch.denominasi)}"></div>
+        <div class="c-info">
+          <h3>${ch.nama_gereja}</h3>
+          <p>${ch.kelurahan}</p>
+          <span class="c-badge">${ch.denominasi}</span>
+        </div>`;
+      el.onclick = () => flyTo(i);
+      list.appendChild(el);
+    });
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  INTERAKSI
+// ════════════════════════════════════════════════════════════
+function flyTo(i) {
+  const ch = allChurches[i];
+  map.flyTo([ch.latitude, ch.longitude], 16, { duration:.75 });
+  setTimeout(() => markers[i].openPopup(), 800);
+  highlightCI(i);
+}
+
+function highlightCI(i) {
+  if (activeEl) activeEl.classList.remove('on');
+  const el = document.getElementById(`ci${i}`);
+  if (el) { el.classList.add('on'); el.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
+  activeEl = el;
+}
+
+function setKel(kel, btn) {
+  activeKel = kel;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  btn.classList.add('on');
+  buildSidebar();
+}
+
+function applyFilter() { buildSidebar(); }
+
+// ════════════════════════════════════════════════════════════
+//  START
+// ════════════════════════════════════════════════════════════
+init();
 </script>
 </body>
 </html>
